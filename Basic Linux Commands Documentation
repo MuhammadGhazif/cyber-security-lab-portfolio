@@ -1,0 +1,674 @@
+===== PAGE 1 =====
+
+LINUX COMMANDS
+A Practical Linux Lab Manual
+LINUX USERS, GROUPS AND FILE PERMISSIONS
+PREPARED BY
+Muhammad Ghazif
+Introduction to Cyber Security
+Document
+Linux Commands
+Topic
+Linux account management, groups, ownership, permissions and access
+control
+Platform
+Linux / Kali Linux terminal
+
+===== PAGE 2 =====
+
+LEARNING • PRACTICE • UNDERSTANDING
+
+===== PAGE 3 =====
+
+Lab Objectives: 
+1. To understand how Linux identifies users and groups, and where account information is stored. 
+2. To create and manage users and groups, including service accounts. 
+3. To interpret and set file permissions in both symbolic and numeric (octal) form. 
+4. To change ownership and build a shared group directory using SGID and the sticky bit. 
+5. To understand default permissions and the umask. 
+6. To identify the permission misconfigurations most often abused by attackers (SUID files, world-
+writable files). 
+Aim: Control who can read, modify and execute files on a Linux system using users, groups, 
+ownership and permission bits. Mapped CLO: CLO-5. 
+By the end of this experiment the student will be able to create and manage users and groups, interpret 
+and set file permissions in both symbolic and numeric form, transfer ownership, predict the effect of a 
+permission change before making it, and identify the permission misconfigurations most often abused 
+by attackers. 
+Lab Environment 
+• 
+Linux OS (Kali Linux virtual machine from Lab 01, restored to a working state) 
+Software Used in Lab 
+1. Kali Linux virtual machine 
+2. Terminal (inside the guest machine) 
+No internet access is required for any task in this lab. You will need the password for your kali 
+account. 
+Introduction to Linux Access Control 
+In Lab 02 you met a message you could not get past. Trying to enter /root as an ordinary user 
+produced a refusal, and that refusal was not a bug. It was the first real security control you have 
+encountered in this course, and this experiment takes it apart. 
+Linux decides who may read, change or run every single file on the system using three pieces of 
+information: who you are, which groups you belong to, and a short string of permission bits attached 
+to the file itself. That mechanism is called discretionary access control, and variations of it protect 
+almost every server you will ever defend. 
+This matters far beyond tidiness. A large share of real Linux compromises do not begin with a clever 
+exploit. They begin with a file that anyone could write to, a script that runs with more authority than it 
+needs, or an administrator who worked as root because it was quicker. By the end of this session 
+you will be able to spot all three. 
+Why Linux has users at all 
+Linux inherited its design from systems that were shared by many people at once, where one 
+person’s mistake had to be prevented from becoming everybody’s mistake. Even on a laptop used 
+by one student, that design is what stops a program you downloaded from quietly reading every file 
+on the disk. 
+Think of a university hostel. Every student has a room and a key that opens only that room. There 
+are shared spaces that a whole floor may use, a warden who can open any door, and rooms that 
+nobody except the warden may enter. Nobody argues that this is unfriendly; it is simply how a 
+shared building works safely. Linux accounts, groups and permissions are the same three ideas.
+
+===== PAGE 4 =====
+
+The principle behind it is least privilege. Every user, and every program that user runs, should have 
+exactly the authority needed to do its job and not one bit more. 
+Users, UIDs and the Account Files 
+A user account is not really a name. Internally the system works with a number, the UID or user 
+identifier. The name is a convenience printed for humans. 
+Kind of account 
+Typical UID 
+Purpose 
+root 
+0 
+The administrator. UID 0 is what makes root 
+powerful. 
+System accounts 
+1 to 999 
+Owned by services such as the web server, 
+never logged in to. 
+Ordinary users 
+1000 and above 
+Real people, including your kali account. 
+ 
+Accounts are listed in /etc/passwd, a plain text file readable by everyone. Despite the name it has 
+held no passwords for decades. One line of /etc/passwd, taken apart: 
+kali:x:1000:1000:Kali User:/home/kali:/usr/bin/zsh 
+  |      | |    |     |         |         | 
+  |      | |    |     |         |         +-- login shell 
+  |      | |    |     |         +------------ home directory 
+  |      | |    |     +---------------------- description field 
+  |      | |    +---------------------------- primary group ID (GID) 
+  |      | +--------------------------------- user ID (UID) 
+        | +----------------------------------- password is elsewhere 
+          +-------------------------------------- username 
+The real password hashes live in /etc/shadow, which only root can read. Splitting the two files was 
+itself a security fix: programs need to look up usernames constantly, but nothing ordinary needs to 
+see the hashes. 
+Notice the last field. An account whose shell is /usr/sbin/nologin or /bin/false cannot be logged in to 
+at all. When you audit a machine, a service account whose shell has quietly been changed to a real 
+one is a finding worth reporting. 
+Part 
+Meaning 
+grep 
+Searches for a specific pattern in text 
+"^$USER:" 
+The pattern to search for 
+^ 
+Means start of the line 
+$USER 
+Environment variable containing your current username 
+: 
+Matches the colon after the username 
+/etc/passwd File containing information about Linux user accounts 
+ 
+ 
+Check your current 
+shell 
+echo $SHELL 
+Check your current shell A login shell 
+is a shell session that starts when a 
+user logs into Kali Linux. It loads the 
+user's login settings and 
+environment variables. 
+A shell is a 
+program that 
+allows you 
+to 
+communicat
+e with Linux 
+by typing 
+commands.
+
+===== PAGE 5 =====
+
+Groups 
+A group is a named set of users, so that permission can be granted to several people at once 
+instead of one at a time. In the hostel analogy, a group is the set of keys that open the second-floor 
+common room. 
+Every user has exactly one primary group, recorded in /etc/passwd, which becomes the group 
+owner of files they create. A user may also belong to any number of supplementary groups, listed 
+in /etc/group. On Kali, membership of the sudo group is what allows an ordinary account to act as 
+administrator. 
+File/Location 
+Holds 
+Readable by 
+/etc/passwd 
+Account names, UIDs, home directories, shells. 
+Everyone. 
+/etc/shadow 
+Password hashes and ageing information. 
+root only. 
+/etc/group 
+Group names, GIDs and supplementary 
+members. 
+Everyone. 
+/etc/sudoers 
+Who may run what as another user. 
+root only. 
+/home/ali 
+Ali's personal home directory 
+ 
+ 
+Check the shell assigned to your user 
+grep "^$USER:" /etc/passwd 
+ 
+ 
+ 
+grep "^ali:" /etc/passwd 
+ali:x:1001:1001:Ali,,,:/home/ali:/bin/bash 
+• 
+ali → Username  
+• 
+x → Password placeholder; the actual 
+password hash is normally stored in 
+/etc/shadow  
+• 
+1001 → User ID (UID)  
+• 
+1001 → Group ID (GID)  
+• 
+Ali → User information/comment field  
+• 
+/home/ali → User's home directory  
+/bin/bash → User's login shell 
+ 
+ 
+• sudo → Run the command with 
+administrator privileges     
+• useradd → Create a new user  
+• -m → Create a home directory for the user  
+• ali → Username 
+ 
+sudo useradd -m ali    (Create User) 
+sudo passwd ali    (Password on User) 
+su – ali (Login to User) 
+Exit (Logout to User)
+
+===== PAGE 6 =====
+
+• -a → append the user to the group  
+• -G → Specify the supplementary group 
+ 
+ 
+Full Example: 
+# Create users 
+sudo useradd -m ali 
+sudo useradd -m ahmed 
+sudo useradd -m sara 
+# Set passwords 
+sudo passwd ali 
+sudo passwd ahmed 
+sudo passwd sara 
+# Create group 
+sudo groupadd students 
+ 
+# Add users to group 
+sudo usermod -aG students ali 
+sudo usermod -aG students ahmed 
+sudo usermod -aG students sara 
+ 
+sudo groupadd developers (Add Group) 
+getent group developers (Check Exist) 
+or: 
+grep "^developers:" /etc/group 
+sudo usermod -aG developers ali 
+(Add User in Group) 
+groups ali (Check User Group)
+
+===== PAGE 7 =====
+
+# Check users 
+id ali 
+id ahmed 
+id sara 
+# Check group 
+getent group students 
+# Login as Ali 
+su - ali 
+# Check current user 
+whoami 
+# Check groups 
+groups 
+# Exit Ali 
+exit 
+Task 
+Command 
+Purpose 
+Check current user 
+whoami 
+Shows logged-in username 
+Show user ID & groups 
+id 
+Shows UID, GID, and groups 
+Create user 
+sudo useradd -m ali 
+Creates user and home directory 
+Set user password 
+sudo passwd ali 
+Sets/changes password 
+Check user exists 
+id ali 
+Displays user information 
+Check user in passwd file 
+grep "^ali:" /etc/passwd 
+Shows user's /etc/passwd entry 
+View all users 
+cat /etc/passwd 
+Displays user account entries 
+Check home directory 
+ls -ld /home/ali 
+Checks user's home directory 
+Login/switch to user 
+su - ali 
+Switches to user ali 
+Exit user 
+exit 
+Returns to previous user 
+Check current shell 
+echo $SHELL 
+Shows user's default shell 
+Check login shell 
+grep "^ali:" /etc/passwd 
+Last field shows login shell 
+Create group 
+sudo groupadd students 
+Creates a group 
+Check group 
+getent group students 
+Shows group information 
+View all groups 
+cat /etc/group 
+Displays group entries 
+Add user to group 
+sudo usermod -aG students ali 
+Adds Ali to students 
+Check user's groups 
+groups ali 
+Shows groups of Ali 
+Check detailed groups 
+id ali 
+Shows UID, GID and groups 
+Add multiple users to group 
+sudo usermod -aG students ali 
+sudo usermod -aG students ahmed 
+Adds different users to same group
+
+===== PAGE 8 =====
+
+root, sudo and Least Privilege 
+root is the account with UID 0. Permission checks are simply skipped for it. There is no file root cannot 
+read, no process root cannot kill, and no safety net if root types the wrong command. 
+For that reason, nobody sensible works as root. Instead, an ordinary user borrows root’s authority for 
+one command at a time with sudo, which also writes a line to the system log every time it is used. 
+Working as root all day is the equivalent of the hostel warden handing out the master key at the gate. 
+Command 
+What it does 
+Note 
+sudo <command> 
+Runs one command as root. 
+The normal, correct habit. 
+sudo -l 
+Lists what you are allowed to run as 
+root. 
+The first thing an attacker checks 
+after landing. 
+su - <user> 
+Switches to another account 
+entirely. 
+Needs that account’s password. 
+sudo -i 
+Opens a root shell. 
+Use sparingly, and leave it 
+quickly. 
+ 
+Ownership 
+Every file and every directory carries two owners: a user owner, normally whoever created it, and a 
+group owner. Permissions are then written separately for the user owner, for members of the 
+owning group, and for everybody else. Those three audiences are traditionally abbreviated u, g and 
+o, with a meaning all three at once. 
+Reading the Permission String 
+Purpose 
+Command 
+Example 
+Check file permissions 
+ls -l 
+ls -l notes.txt 
+Check directory permissions 
+ls -ld 
+ls -ld myfolder 
+Check detailed file information 
+stat 
+stat notes.txt 
+Check detailed directory information 
+stat 
+stat myfolder 
+Check permissions of files inside a directory 
+ls -l directory/ ls -l Documents/ 
+Check permissions of all files, including hidden files ls -la 
+ls -la Documents/ 
+Check permissions along a path 
+namei -l 
+namei -l /home/ali/notes.txt
+
+===== PAGE 9 =====
+
+The first column of ls -l is ten characters. The first says what kind of thing it is; the remaining nine are 
+three groups of three. 
+-rwxr-xr-- 1 kali students 1247 Sep 24 10:14 report.txt 
+|  |  | 
+| |  |  +-- others: read only 
+| |  +----- group: read and execute 
+| +-------- owner: read, write and execute 
++---------- type: - file, d directory, l symbolic link 
+Each triad is always printed in the same order, r then w then x, with a dash where the permission is 
+absent. The trap for beginners is that the three letters mean different things depending on whether 
+the target is a file or a directory. 
+Bit 
+On a file 
+On a directory 
+r (read) 
+You can look at the contents. 
+You can list the names inside it. 
+w (write) 
+You can change or overwrite it. 
+You can create, rename and delete 
+entries inside it. 
+x (execute) 
+You can run it as a program. 
+You can enter it and reach things inside. 
+ 
+Two consequences catch people out every semester. A directory with r but no x lets you see the 
+names inside and nothing else. More seriously, deleting a file depends on write permission on the 
+directory, not on the file: if you can write to a folder you can delete a read-only file inside it. 
+Numeric (Octal) Notation 
+Each triad is three bits, so it can be written as a single digit from 0 to 7. Read means 4, write means 
+2, execute means 1, and you add them together. 
+Digit 
+Bits 
+Means 
+7 
+rwx 
+Read, write and execute. 
+6 
+rw- 
+Read and write. 
+5 
+r-x 
+Read and execute. 
+4 
+r-- 
+Read only. 
+0 
+--- 
+Nothing at all.
+
+===== PAGE 10 =====
+
+Three digits therefore describe a whole file: owner, group, others. 
+Mode 
+Looks like 
+Where it is right 
+644 
+rw-r--r-- 
+An ordinary document. The default for new files. 
+755 
+rwxr-xr-x 
+A program or a directory everyone may use. 
+600 
+rw------- 
+A private file such as an SSH key. 
+700 
+rwx------ 
+A private directory. 
+777 
+rwxrwxrwx 
+Almost nowhere. Treat it as a finding, not a fix. 
+Changing Permissions and Ownership 
+chmod changes the permission bits and accepts either notation. The symbolic form is easier to read 
+when you are adjusting one thing; the numeric form is faster when you are setting all nine bits at 
+once. 
+chmod u+x script.sh      # give the owner execute 
+chmod g-w report.txt     # take write away from the group 
+chmod o= secrets.txt     # give others nothing 
+chmod a+r notes.txt      # everyone may read 
+chmod 640 report.txt     # owner rw, group r, others nothing 
+chmod -R 750 project/    # apply down a whole directory tree 
+chown changes the user owner and chgrp the group owner. Both normally require root, because 
+otherwise you could dispose of an incriminating file by giving it to somebody else. 
+sudo chown ahmed report.txt            # change the user owner 
+sudo chown ahmed:students report.txt    # change both at once 
+sudo chgrp students report.txt          # change only the group 
+Command 
+Used For 
+Example 
+ls -l 
+Check file permissions 
+ls -l notes.txt 
+ls -ld 
+Check directory permissions 
+ls -ld Documents 
+stat 
+Detailed information 
+stat notes.txt 
+namei -l 
+Check path permissions 
+namei -l /home/ali/notes.txt 
+chmod 
+Change permissions 
+chmod 644 notes.txt 
+chown 
+Change owner 
+sudo chown ali notes.txt 
+chown user:group 
+Change owner + group 
+sudo chown ali:students notes.txt 
+chgrp 
+Change group 
+sudo chgrp students notes.txt
+
+===== PAGE 11 =====
+
+Task 
+Command 
+Example 
+Give owner read/write 
+chmod 600 
+chmod 600 notes.txt 
+Owner read/write, others read 
+chmod 644 
+chmod 644 notes.txt 
+Owner all, others read/execute 
+chmod 755 
+chmod 755 script.sh 
+Give everyone full permissions 
+chmod 777 
+chmod 777 file.txt 
+Add execute to owner 
+chmod u+x 
+chmod u+x script.sh 
+Remove write from group 
+chmod g-w 
+chmod g-w notes.txt 
+Add read for others 
+chmod o+r 
+chmod o+r notes.txt 
+Add read for everyone 
+chmod a+r 
+chmod a+r notes.txt 
+ 
+Task 
+Command 
+Meaning 
+Add read permission to owner 
+chmod u+r file.txt 
+Owner can read 
+Add write permission to owner 
+chmod u+w file.txt 
+Owner can write 
+Add execute permission to owner 
+chmod u+x script.sh 
+Owner can execute 
+Remove write from owner 
+chmod u-w file.txt 
+Owner cannot write 
+Add read to group 
+chmod g+r file.txt 
+Group can read 
+Add write to group 
+chmod g+w file.txt 
+Group can write 
+Remove write from group 
+chmod g-w file.txt 
+Group cannot write 
+Add read to others 
+chmod o+r file.txt 
+Others can read 
+Remove read from others 
+chmod o-r file.txt 
+Others cannot read 
+Add execute to everyone 
+chmod a+x script.sh 
+Everyone can execute
+
+===== PAGE 12 =====
+
+Default Permissions and umask 
+New files do not arrive with random permissions. The system starts from 666 for files and 777 for 
+directories, then removes whatever the umask says to remove. A umask of 022 therefore produces 
+644 files and 755 directories, which is what you saw in Lab 02. 
+umask        # show the current mask 
+umask 077    # new files become 600, new directories 700 
+A umask of 077 is the right default on a shared or sensitive machine: everything you create is private 
+until you deliberately open it. Note that changing it in a terminal lasts only for that terminal. 
+umask 
+Command 
+File Permission 
+Directory Permission 
+000 
+umask 000 
+touch file.txt → 666 
+mkdir mydir → 777 
+002 
+umask 002 
+touch file.txt → 664 
+mkdir mydir → 775 
+022 
+umask 022 
+touch file.txt → 644 
+mkdir mydir → 755 
+027 
+umask 027 
+touch file.txt → 640 
+mkdir mydir → 750 
+077 
+umask 077 
+touch file.txt → 600 
+mkdir mydir → 700 
+ 
+umask 
+New File 
+New Directory 
+Meaning 
+000 
+666 
+777 
+No permissions masked 
+002 
+664 
+775 
+Group can write 
+022 
+644 
+755 
+Common setting 
+027 
+640 
+750 
+Others get no access 
+077 
+600 
+700 
+Only owner has access 
+Special Permissions 
+Three extra bits sit alongside the usual nine, and all three matter to an attacker. 
+Bit 
+Shown as 
+Effect 
+SUID 
+s in the owner’s execute 
+position 
+The program runs with the file owner’s authority, 
+not yours. 
+SGID 
+s in the group execute 
+position 
+On a program, it runs as the owning group; on a 
+directory, new files inherit that group. 
+Sticky 
+t in the others’ execute 
+position 
+In a shared directory, only the owner of a file may 
+delete it.
+
+===== PAGE 13 =====
+
+Permission Set with Symbolic Command Set with Numeric Command 
+Remove 
+SUID 
+chmod u+s file 
+chmod 4755 file 
+chmod u-s file 
+SGID 
+chmod g+s file 
+chmod 2755 file 
+chmod g-s file 
+Sticky Bit 
+chmod +t directory 
+chmod 1777 directory 
+chmod -t directory 
+ 
+The clearest example of SUID is /usr/bin/passwd. Changing your own password means writing to 
+/etc/shadow, which only root may do, yet any user can change their password. The program carries 
+the SUID bit and therefore runs as root for that one job. 
+The clearest example of the sticky bit is /tmp. Everybody can write there, which would normally mean 
+everybody can delete everybody else’s files. The sticky bit prevents exactly that. 
+What a Misconfiguration Looks Like 
+Finding 
+Why it is dangerous 
+A world-writable script run by root 
+Any user edits it, waits, and their code runs as root. 
+chmod 777 on a web directory 
+An uploaded file can be modified or replaced by anyone 
+on the machine. 
+A custom SUID binary 
+Any flaw in it becomes a direct route to root. 
+/etc/shadow readable by others 
+Password hashes can be copied off and cracked offline. 
+A service account with a real login 
+shell 
+A service compromise turns into interactive access. 
+Conclusion 
+In this experiment you moved from being a user of a Linux machine to being able to control who else 
+may use it. You examined how accounts and groups are stored, created both, and saw why a 
+service account is deliberately built so that nobody can log in to it. 
+You then read the permission string character by character, changed it in both symbolic and numeric 
+form, and proved each change by switching to another account and being refused. You saw that 
+read, write and execute mean different things on a directory, that the right to delete a file belongs to 
+whoever can write to the folder holding it, and that default permissions come from the umask rather 
+than from nowhere.
