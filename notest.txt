@@ -1,0 +1,69 @@
+NETWORK RECONNAISSANCE LAB NOTES
+===============================
+
+Source: Terminal screenshot provided by the user
+Environment shown: Kali Linux terminal
+Target used in the screenshot: google.com
+Note: Run scans only against systems you own or have permission to test.
+
+1. HOST DISCOVERY
+-----------------
+Command:
+nmap -sn google.com
+
+Observed result:
+- Nmap version: 7.99
+- Hostname google.com resolved to two IP addresses.
+- Nmap scanned IPv4 address: 142.250.202.142
+- Host reported as up.
+- One additional IPv6 address was listed but not scanned.
+- Scan completed with 1 host up.
+
+2. SERVICE/VERSION SCAN
+-----------------------
+Command:
+nmap -sV google.com
+
+Observed result:
+- Nmap version: 7.99
+- Hostname google.com resolved to two IP addresses.
+- Nmap scanned IPv4 address: 142.250.202.142
+- Host reported as up.
+- 998 TCP ports were reported as filtered (no response).
+- TCP port 80: open, service shown as tcpwrapped.
+- TCP port 443: open, service shown as tcpwrapped.
+- Service detection completed.
+
+3. PING TEST
+------------
+The following command was entered first:
+ping -c google.com
+
+Observed result:
+- The command returned an invalid argument error because the count option (-c)
+  requires a number before the hostname.
+
+Corrected command used:
+ping -c 4 8.8.8.8
+
+Observed result:
+- Four ICMP packets were transmitted.
+- Four replies were received.
+- Packet loss: 0%.
+- Reported round-trip time:
+  min/avg/max/mdev = 43.705/43.869/44.029/0.118 ms
+
+4. COMMAND SUMMARY
+------------------
+nmap -sn google.com
+nmap -sV google.com
+ping -c 4 8.8.8.8
+
+5. NOTES
+--------
+- `nmap -sn` performs host discovery without a port scan.
+- `nmap -sV` attempts to identify services and versions on discovered open ports.
+- In `ping -c 4`, the number 4 specifies how many packets to send.
+- Results can vary depending on DNS responses, network conditions, and the target.
+- The observations above are transcribed from the supplied screenshot; they are
+  not a guarantee of the target's current network state.
